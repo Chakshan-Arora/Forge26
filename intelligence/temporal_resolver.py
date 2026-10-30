@@ -42,6 +42,13 @@ class TemporalResolver:
             
         clean = date_str.strip()
         
+        # Check standard ISO YYYY-MM-DD first to prevent dayfirst ambiguity
+        if re.match(r"^\d{4}-\d{2}-\d{2}$", clean):
+            try:
+                return date.fromisoformat(clean)
+            except ValueError:
+                pass
+
         # Check financial year pattern e.g. "2020-21" or "2025-26"
         fy_match = re.match(r"^(\d{4})-(\d{2})$", clean)
         if fy_match:
@@ -62,6 +69,14 @@ class TemporalResolver:
             return None
             
         clean = valid_until_str.strip()
+
+        # Check standard ISO YYYY-MM-DD first
+        if re.match(r"^\d{4}-\d{2}-\d{2}$", clean):
+            try:
+                return date.fromisoformat(clean)
+            except ValueError:
+                pass
+
         fy_match = re.match(r"^(\d{4})-(\d{2})$", clean)
         if fy_match:
             end_short = int(fy_match.group(2))

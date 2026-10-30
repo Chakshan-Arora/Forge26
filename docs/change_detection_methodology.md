@@ -26,7 +26,7 @@ flowchart TD
     D --> E["Stage 3: Structural & Hierarchy Matching<br/>(Section + Dot/Bracket Numbering)"]
     E --> F["Stage 4: Lexical & Character N-Gram Overlap"]
     F --> G["Stage 5: Renumbering Detection Engine"]
-    G --> H["Stage 6: Global Bipartite Assignment & Classification"]
+    G --> H["Stage 6: Global Bipartite Assignment<br/>(Kuhn-Munkres Optimal / Greedy)"]
     H --> I["Validated ChangeRecord Items"]
 ```
 
@@ -70,9 +70,11 @@ If numbering similarity is low ($S_{\text{num}} < 0.50$) but textual similarity 
 - The clause pair is linked as a modification rather than a spurious addition/removal.
 - A detailed uncertainty is attached: *"Clause renumbered from 4.2 to 5.1; core text retained."*
 
-### Stage 6: Global Bipartite Optimal Assignment
-- Constructs a full similarity score matrix between all $M$ previous clauses and $N$ current clauses.
-- Executes greedy maximum-weight bipartite assignment with a threshold cutoff ($\theta_{\text{min}} = 0.60$).
+### Stage 6: Global Bipartite Optimal Assignment (Kuhn-Munkres Algorithm)
+- Constructs an $M \times N$ composite similarity matrix $S$ between all $M$ previous clauses and $N$ current clauses.
+- **Globally Optimal Assignment (`method="optimal"`, default)**: Solves the maximum-weight bipartite matching problem globally using the Kuhn-Munkres (Hungarian) algorithm via `scipy.optimize.linear_sum_assignment` by minimizing the cost matrix $C_{ij} = 1.0 - S_{ij}$. Unlike greedy selection, which can get trapped in local maxima by selecting high-scoring individual pairs that orphan other valid candidates, globally optimal assignment maximizes the total regulatory alignment score $\sum S_{ij}$.
+- **Heuristic Greedy Assignment (`method="greedy"`)**: Retained as a lightweight alternative that sorts candidate pairs descending by score and greedily matches non-overlapping pairs.
+- Threshold cutoff: Pairs with $S_{ij} < \theta_{\text{medium}}$ ($0.60$) are rejected.
 - Unpaired current clauses are classified as candidate additions (`ADDED`).
 - Unpaired previous clauses are classified as candidate removals (`REMOVED`).
 

@@ -3,10 +3,14 @@ Clause Matcher Module.
 
 Aligns clauses across policy versions using structural comparison,
 renumbering detection, fuzzy similarity, and optimal bipartite pairing.
+Supports both globally optimal bipartite assignment (via Hungarian algorithm/scipy)
+and greedy maximum-weight heuristic matching.
 """
 
 from __future__ import annotations
+import warnings
 from typing import Dict, List, Optional, Set, Tuple
+import numpy as np
 from pydantic import BaseModel, Field
 
 from shared.schemas import Clause
@@ -104,43 +108,121 @@ class ClauseMatcher:
     def match_clauses(
         self,
         prev_clauses: List[Clause],
-        curr_clauses: List[Clause]
+        curr_clauses: List[Clause],
+        method: str = "optimal"
     ) -> List[ClauseMatchResult]:
         """
-        Pairs clauses across two versions using bipartite optimal matching.
-        Returns matched pairs, additions (prev=None), and removals (curr=None).
+        Pairs clauses across two versions.
+        
+        Args:
+            prev_clauses: Clauses from baseline/earlier policy version.
+            curr_clauses: Clauses from amending/later policy version.
+            method: 'optimal' (default) uses Kuhn-Munkres/Hungarian algorithm via scipy
+                    to maximize total bipartite similarity score globally;
+                    'greedy' uses sorted candidate selection.
+        
+        Returns:
+            List of ClauseMatchResult items including matches, additions, and removals.
         """
         results: List[ClauseMatchResult] = []
         
+        if not prev_clauses and not curr_clauses:
+            return results
+
+        if not prev_clauses:
+            for c_curr in curr_clauses:
+                results.append(
+                    ClauseMatchResult(
+                        previous_clause=None,
+                        current_clause=c_curr,
+                        similarity_score=0.0,
+                        is_exact_match=False,
+                        is_renumbered=False,
+                        match_notes="Newly introduced clause (ADDED)"
+                    )
+                )
+            return results
+
+        if not curr_clauses:
+            for c_prev in prev_clauses:
+                results.append(
+                    ClauseMatchResult(
+                        previous_clause=c_prev,
+                        current_clause=None,
+                        similarity_score=0.0,
+                        is_exact_match=False,
+                        is_renumbered=False,
+                        match_notes="Clause not present in current document (REMOVED / CANDIDATE SUPERSEDED)"
+                    )
+                )
+            return results
+
+        M = len(prev_clauses)
+        N = len(curr_clauses)
+
+        # Build similarity and renumbering matrix
+        score_matrix = np.zeros((M, N), dtype=float)
+        renumbered_matrix = np.zeros((M, N), dtype=bool)
+
+        for i, c_prev in enumerate(prev_clauses):
+            for j, c_curr in enumerate(curr_clauses):
+                score, is_renum = self.compute_clause_pair_score(c_prev, c_curr)
+                score_matrix[i, j] = score
+                renumbered_matrix[i, j] = is_renum
+
+        matched_pairs: List[Tuple[int, int]] = []
         matched_prev_indices: Set[int] = set()
         matched_curr_indices: Set[int] = set()
 
-        # Step 1: Candidate score matrix
-        candidates: List[Tuple[float, int, int, bool]] = []
-        for i, c_prev in enumerate(prev_clauses):
-            for j, c_curr in enumerate(curr_clauses):
-                score, is_renumbered = self.compute_clause_pair_score(c_prev, c_curr)
-                if score >= self.config.medium_similarity_threshold:
-                    candidates.append((score, i, j, is_renumbered))
-
-        # Step 2: Sort candidate matches descending by score (greedy maximum matching)
-        candidates.sort(key=lambda x: x[0], reverse=True)
-
-        for score, i, j, is_renumbered in candidates:
-            if i in matched_prev_indices or j in matched_curr_indices:
-                continue
+        if method == "optimal":
+            try:
+                from scipy.optimize import linear_sum_assignment
+                # linear_sum_assignment solves min-cost matching.
+                # Maximize score by minimizing (1.0 - score)
+                cost_matrix = 1.0 - score_matrix
+                row_ind, col_ind = linear_sum_assignment(cost_matrix)
                 
+                for i, j in zip(row_ind, col_ind):
+                    score = float(score_matrix[i, j])
+                    if score >= self.config.medium_similarity_threshold:
+                        matched_pairs.append((i, j))
+                        matched_prev_indices.add(i)
+                        matched_curr_indices.add(j)
+            except Exception as e:
+                warnings.warn(f"Optimal matching via scipy failed ({e}); falling back to greedy matching.")
+                method = "greedy"
+
+        if method == "greedy":
+            candidates: List[Tuple[float, int, int]] = []
+            for i in range(M):
+                for j in range(N):
+                    score = float(score_matrix[i, j])
+                    if score >= self.config.medium_similarity_threshold:
+                        candidates.append((score, i, j))
+            
+            # Sort descending by score
+            candidates.sort(key=lambda x: x[0], reverse=True)
+            for score, i, j in candidates:
+                if i not in matched_prev_indices and j not in matched_curr_indices:
+                    matched_pairs.append((i, j))
+                    matched_prev_indices.add(i)
+                    matched_curr_indices.add(j)
+
+        # Build result objects for matched pairs
+        for i, j in matched_pairs:
             prev_c = prev_clauses[i]
             curr_c = curr_clauses[j]
-            
+            score = float(score_matrix[i, j])
+            is_renumbered = bool(renumbered_matrix[i, j])
+
             is_exact = (
                 score >= self.config.exact_match_threshold and
                 RegulatoryNormalizer.normalize_text(prev_c.text) == RegulatoryNormalizer.normalize_text(curr_c.text) and
                 not is_renumbered
             )
-            
+
             note = "Exact match" if is_exact else ("Renumbered clause" if is_renumbered else "Modified clause")
-            
+
             results.append(
                 ClauseMatchResult(
                     previous_clause=prev_c,
@@ -151,10 +233,8 @@ class ClauseMatcher:
                     match_notes=note
                 )
             )
-            matched_prev_indices.add(i)
-            matched_curr_indices.add(j)
 
-        # Step 3: Any remaining clauses in current_clauses are ADDED
+        # Step 3: Unmatched current clauses are ADDED
         for j, c_curr in enumerate(curr_clauses):
             if j not in matched_curr_indices:
                 results.append(
@@ -168,7 +248,7 @@ class ClauseMatcher:
                     )
                 )
 
-        # Step 4: Any remaining clauses in prev_clauses are REMOVED / SUPERSEDED
+        # Step 4: Unmatched previous clauses are REMOVED / SUPERSEDED
         for i, c_prev in enumerate(prev_clauses):
             if i not in matched_prev_indices:
                 results.append(

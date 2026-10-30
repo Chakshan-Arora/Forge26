@@ -45,10 +45,10 @@ def test_pending_amendment_detection():
 
     scheme = "Post-Matric Scholarship for SC Students"
 
-    # Query on 2020-05-01 (doc_2018 was valid, doc_2020 not yet notified until 2020-12-23)
-    res_2020_may = resolver.resolve_applicability_at_date(scheme, "2020-05-01")
-    assert doc_2018.id in res_2020_may.applicable_document_ids
-    assert doc_2020.id not in res_2020_may.applicable_document_ids
+    # Query on 2020-02-01 (doc_2018 was valid until 2020-03-31, doc_2020 not yet notified until 2020-12-23)
+    res_2020_feb = resolver.resolve_applicability_at_date(scheme, "2020-02-01")
+    assert doc_2018.id in res_2020_feb.applicable_document_ids
+    assert doc_2020.id not in res_2020_feb.applicable_document_ids
 
 
 def test_trace_condition_origin():

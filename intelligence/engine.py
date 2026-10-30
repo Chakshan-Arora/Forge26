@@ -1,21 +1,29 @@
 """
 Policy Intel Intelligence Engine - Unified Integration Interface.
 
-This module provides the primary high-level facade (PolicyIntelEngine)
-consumed by Person 3 (Backend API / FastAPI) and other services.
+This module provides the authoritative high-level facade (PolicyIntelEngine)
+consumed by Person 3 (Backend API / FastAPI) and other platform services.
 
-Features:
-- Document registration and repository management
-- Automated clause-level change detection between revisions
-- Temporal regulatory knowledge graph maintenance
-- Point-in-time eligibility and applicability queries
-- Evidence-backed student impact analysis
-- Conflict, supersession, and dependency gap detection
-- Regulatory audit trail extraction
+Authoritative Method Signatures:
+- ingest_document(document: Document) -> None (alias: register_document)
+- ingest_documents(documents: List[Document]) -> None (alias: register_documents)
+- compare_documents(base_document, target_document, update_graph=True, method="optimal")
+    -> Tuple[List[ChangeRecord], ChangeDetectionSummary]
+- detect_changes(base_document, target_document, update_graph=True, method="optimal")
+    -> List[ChangeRecord]
+- resolve_applicability(scheme_name: str, query_date: str) -> TemporalApplicabilityResult
+    (alias: query_eligibility_at_date)
+- trace_condition_origin(scheme_name: str, condition_keyword: str) -> List[Dict[str, Any]]
+    (alias: trace_condition)
+- analyze_impact(target_document, base_document=None, changes=None) -> ImpactAnalysisReport
+- detect_conflicts(scheme_name: str) -> List[ConflictReport]
+- export_graph_dict() -> Dict[str, Any] (alias: get_graph_dict)
+- export_graph_mermaid() -> str (alias: get_graph_mermaid)
+- get_audit_trail(evidence_list: List[EvidenceRecord]) -> str
 """
 
 from __future__ import annotations
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from shared.schemas import (
     Document,
@@ -39,7 +47,7 @@ from intelligence.evidence_engine import EvidenceEngine
 
 class PolicyIntelEngine:
     """
-    Unified intelligence facade for the Policy Intel platform.
+    Authoritative unified intelligence facade for the Policy Intel platform.
     Connects ingestion inputs from Person 1 with API endpoints for Person 3.
     """
 
@@ -61,23 +69,27 @@ class PolicyIntelEngine:
         # In-memory document storage
         self._documents: Dict[str, Document] = {}
 
-    def register_document(self, document: Document) -> None:
+    # -------------------------------------------------------------------------
+    # 1. Document Ingestion & Registration
+    # -------------------------------------------------------------------------
+
+    def ingest_document(self, document: Document) -> None:
         """
-        Registers a structured policy document from Person 1 into the engine,
+        Authoritative: Registers a structured policy document from Person 1,
         ingesting it into the knowledge graph and temporal resolver.
         """
         self._documents[document.id] = document
         self.temporal_resolver.register_document(document)
         self.conflict_detector.register_documents([document])
 
-    def register_documents(self, documents: List[Document]) -> None:
+    def ingest_documents(self, documents: List[Document]) -> None:
         """Batch registers multiple documents."""
         for doc in documents:
-            self.register_document(doc)
+            self.ingest_document(doc)
 
-    # Aliases for flexible integration
-    ingest_document = register_document
-    ingest_documents = register_documents
+    # Aliases
+    register_document = ingest_document
+    register_documents = ingest_documents
 
     def get_document(self, document_id: str) -> Optional[Document]:
         """Retrieves a registered document by its unique ID."""
@@ -87,18 +99,23 @@ class PolicyIntelEngine:
         """Returns all currently registered documents."""
         return list(self._documents.values())
 
+    # -------------------------------------------------------------------------
+    # 2. Clause-Level Policy Comparison
+    # -------------------------------------------------------------------------
+
     def compare_documents(
         self,
         base_document: Optional[Union[str, Document]] = None,
         target_document: Optional[Union[str, Document]] = None,
         update_graph: bool = True,
+        method: str = "optimal",
         base_document_id: Optional[str] = None,
         target_document_id: Optional[str] = None,
     ) -> Tuple[List[ChangeRecord], ChangeDetectionSummary]:
         """
-        Compares two policy documents at clause level.
-        Accepts either document IDs (str), Document objects, or base/target_document_id keyword arguments.
-        Produces authoritative ChangeRecords and updates the regulatory knowledge graph.
+        Authoritative: Compares two policy documents at clause level.
+        Accepts either document IDs (str), Document objects, or keyword args.
+        Returns a tuple of (List[ChangeRecord], ChangeDetectionSummary).
         """
         target = target_document or target_document_id
         base = base_document or base_document_id
@@ -107,7 +124,7 @@ class PolicyIntelEngine:
             raise ValueError("Target document or target_document_id must be provided.")
 
         if isinstance(target, Document):
-            self.register_document(target)
+            self.ingest_document(target)
             target_doc = target
         else:
             target_doc = self.get_document(target)
@@ -115,7 +132,7 @@ class PolicyIntelEngine:
                 raise ValueError(f"Target document '{target}' not found in engine.")
 
         if isinstance(base, Document):
-            self.register_document(base)
+            self.ingest_document(base)
             base_doc = base
         elif base:
             base_doc = self.get_document(base)
@@ -124,10 +141,11 @@ class PolicyIntelEngine:
         else:
             base_doc = None
 
-        # Execute clause-level change detection
+        # Execute clause-level change detection (optimal Kuhn-Munkres or greedy)
         changes = self.detector.compare_documents(
             previous_doc=base_doc,
-            current_doc=target_doc
+            current_doc=target_doc,
+            method=method
         )
 
         # Ingest detected changes into the regulatory knowledge graph
@@ -145,6 +163,26 @@ class PolicyIntelEngine:
 
         return changes, summary
 
+    def detect_changes(
+        self,
+        base_document: Optional[Union[str, Document]] = None,
+        target_document: Optional[Union[str, Document]] = None,
+        update_graph: bool = True,
+        method: str = "optimal",
+        base_document_id: Optional[str] = None,
+        target_document_id: Optional[str] = None,
+    ) -> List[ChangeRecord]:
+        """Convenience method returning solely the List[ChangeRecord]."""
+        changes, _ = self.compare_documents(
+            base_document=base_document,
+            target_document=target_document,
+            update_graph=update_graph,
+            method=method,
+            base_document_id=base_document_id,
+            target_document_id=target_document_id
+        )
+        return changes
+
     def get_change_summary(
         self,
         base_document: Optional[Union[str, Document]],
@@ -156,6 +194,10 @@ class PolicyIntelEngine:
         target_doc = target_document if isinstance(target_document, Document) else self.get_document(target_document)
         return self.detector.summarize_changes(base_doc, target_doc, changes)
 
+    # -------------------------------------------------------------------------
+    # 3. Multi-Dimensional Impact Analysis
+    # -------------------------------------------------------------------------
+
     def analyze_impact(
         self,
         target_document: Optional[Union[str, Document]] = None,
@@ -165,7 +207,7 @@ class PolicyIntelEngine:
         base_document_id: Optional[str] = None,
     ) -> ImpactAnalysisReport:
         """
-        Executes end-to-end impact analysis for a policy document or amendment.
+        Authoritative: Executes end-to-end impact analysis for a policy document or amendment.
         Identifies affected student cohorts, deterministic interval shifts, and practical actions.
         """
         target = target_document or target_document_id
@@ -175,7 +217,7 @@ class PolicyIntelEngine:
             raise ValueError("Target document or target_document_id must be provided.")
 
         if isinstance(target, Document):
-            self.register_document(target)
+            self.ingest_document(target)
             target_doc = target
         else:
             target_doc = self.get_document(target)
@@ -183,7 +225,7 @@ class PolicyIntelEngine:
                 raise ValueError(f"Target document '{target}' not found in engine.")
 
         if isinstance(base, Document):
-            self.register_document(base)
+            self.ingest_document(base)
             base_doc = base
         elif base:
             base_doc = self.get_document(base)
@@ -192,9 +234,9 @@ class PolicyIntelEngine:
 
         # Detect changes if not provided
         if changes is None and base_doc is not None:
-            changes = self.detector.compare_documents(
-                previous_doc=base_doc,
-                current_doc=target_doc
+            changes, _ = self.compare_documents(
+                base_document=base_doc,
+                target_document=target_doc
             )
         elif changes is None:
             changes = []
@@ -206,13 +248,17 @@ class PolicyIntelEngine:
             base_document=base_doc
         )
 
-    def query_eligibility_at_date(
+    # -------------------------------------------------------------------------
+    # 4. Temporal Applicability & Provenance
+    # -------------------------------------------------------------------------
+
+    def resolve_applicability(
         self,
         scheme_name: str,
         query_date: str
     ) -> TemporalApplicabilityResult:
         """
-        Point-in-time regulatory query:
+        Authoritative: Point-in-time regulatory query:
         Answers: 'What were the eligibility requirements on date X?'
         """
         return self.temporal_resolver.resolve_applicability_at_date(
@@ -220,15 +266,16 @@ class PolicyIntelEngine:
             query_date_str=query_date
         )
 
-    resolve_applicability = query_eligibility_at_date
+    # Alias
+    query_eligibility_at_date = resolve_applicability
 
-    def trace_condition(
+    def trace_condition_origin(
         self,
         scheme_name: str,
         condition_keyword: str
     ) -> List[Dict[str, Any]]:
         """
-        Provenance query:
+        Authoritative: Provenance query:
         Answers: 'Which notification introduced this particular condition?'
         """
         return self.temporal_resolver.trace_condition_origin(
@@ -236,23 +283,32 @@ class PolicyIntelEngine:
             condition_keyword=condition_keyword
         )
 
-    trace_condition_origin = trace_condition
+    # Alias
+    trace_condition = trace_condition_origin
+
+    # -------------------------------------------------------------------------
+    # 5. Conflict & Dependency Auditing
+    # -------------------------------------------------------------------------
 
     def detect_conflicts(self, scheme_name: str) -> List[ConflictReport]:
         """
-        Scans all documents under a scheme for contradictions, competing amendments,
-        and missing historical version dependencies.
+        Authoritative: Scans all documents under a scheme for contradictions,
+        competing amendments, distinct scope rules, and missing historical dependencies.
         """
         return self.conflict_detector.detect_conflicts_for_scheme(scheme_name=scheme_name)
 
+    # -------------------------------------------------------------------------
+    # 6. Knowledge Graph & Evidentiary Exports
+    # -------------------------------------------------------------------------
+
     def export_graph_dict(self) -> Dict[str, Any]:
-        """Exports the regulatory knowledge graph to a JSON-serializable dictionary."""
+        """Authoritative: Exports the regulatory knowledge graph to a JSON-serializable dictionary."""
         return self.graph.to_dict()
 
     get_graph_dict = export_graph_dict
 
     def export_graph_mermaid(self) -> str:
-        """Exports the regulatory knowledge graph in Mermaid syntax for markdown rendering."""
+        """Authoritative: Exports the regulatory knowledge graph in Mermaid syntax for markdown rendering."""
         if isinstance(self.graph, NetworkXRegulatoryGraph):
             return self.graph.to_mermaid()
         return "flowchart TD\n    NodeA --> NodeB"
@@ -260,5 +316,5 @@ class PolicyIntelEngine:
     get_graph_mermaid = export_graph_mermaid
 
     def get_audit_trail(self, evidence_list: List[EvidenceRecord]) -> str:
-        """Generates a formatted human-readable evidence audit trail."""
+        """Authoritative: Generates a formatted human-readable evidence audit trail."""
         return EvidenceEngine.format_audit_trail(evidence_list)

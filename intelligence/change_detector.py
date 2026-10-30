@@ -43,18 +43,22 @@ class ChangeDetector:
     def compare_documents(
         self,
         previous_doc: Optional[Document],
-        current_doc: Document
+        current_doc: Document,
+        method: str = "optimal"
     ) -> List[ChangeRecord]:
         """
         Compares two policy documents at clause level.
         Produces authoritative ChangeRecord items conforming to shared contract.
+
+        Args:
+            previous_doc: Predecessor document version.
+            current_doc: Successor/amending document version.
+            method: 'optimal' (default Kuhn-Munkres) or 'greedy'.
         """
         if previous_doc is None:
             # Baseline document: all clauses are treated as initial ADDED provisions
             records: List[ChangeRecord] = []
             for clause in current_doc.clauses:
-                match_result = self.matcher.compute_clause_pair_score(clause, clause)
-                # Fabricate an addition match
                 from intelligence.clause_matcher import ClauseMatchResult
                 add_match = ClauseMatchResult(
                     previous_clause=None,
@@ -69,10 +73,11 @@ class ChangeDetector:
                     records.append(rec)
             return records
 
-        # Pair clauses using bipartite matcher
+        # Pair clauses using bipartite matcher (optimal or greedy)
         match_results = self.matcher.match_clauses(
             prev_clauses=previous_doc.clauses,
-            curr_clauses=current_doc.clauses
+            curr_clauses=current_doc.clauses,
+            method=method
         )
 
         records: List[ChangeRecord] = []
