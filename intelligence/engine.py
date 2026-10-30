@@ -158,27 +158,35 @@ class PolicyIntelEngine:
 
     def analyze_impact(
         self,
-        target_document: Union[str, Document],
+        target_document: Optional[Union[str, Document]] = None,
         base_document: Optional[Union[str, Document]] = None,
-        changes: Optional[List[ChangeRecord]] = None
+        changes: Optional[List[ChangeRecord]] = None,
+        target_document_id: Optional[str] = None,
+        base_document_id: Optional[str] = None,
     ) -> ImpactAnalysisReport:
         """
         Executes end-to-end impact analysis for a policy document or amendment.
         Identifies affected student cohorts, deterministic interval shifts, and practical actions.
         """
-        if isinstance(target_document, Document):
-            self.register_document(target_document)
-            target_doc = target_document
-        else:
-            target_doc = self.get_document(target_document)
-            if not target_doc:
-                raise ValueError(f"Target document '{target_document}' not found in engine.")
+        target = target_document or target_document_id
+        base = base_document or base_document_id
 
-        if isinstance(base_document, Document):
-            self.register_document(base_document)
-            base_doc = base_document
-        elif base_document:
-            base_doc = self.get_document(base_document)
+        if target is None:
+            raise ValueError("Target document or target_document_id must be provided.")
+
+        if isinstance(target, Document):
+            self.register_document(target)
+            target_doc = target
+        else:
+            target_doc = self.get_document(target)
+            if not target_doc:
+                raise ValueError(f"Target document '{target}' not found in engine.")
+
+        if isinstance(base, Document):
+            self.register_document(base)
+            base_doc = base
+        elif base:
+            base_doc = self.get_document(base)
         else:
             base_doc = None
 
