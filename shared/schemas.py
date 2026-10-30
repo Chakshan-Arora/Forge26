@@ -249,3 +249,69 @@ class TemporalApplicabilityResult(BaseModel):
     active_amendments: List[Dict[str, Any]] = Field(default_factory=list)
     unresolved_reasons: List[str] = Field(default_factory=list)
     evidence: List[EvidenceRecord] = Field(default_factory=list)
+
+
+class AgentInvestigationStep(BaseModel):
+    """Execution step log in the multi-step regulatory investigation agent."""
+    step_number: int
+    step_name: str
+    description: str
+    tool_invoked: Optional[str] = None
+    status: str = "COMPLETED"
+    details: Dict[str, Any] = Field(default_factory=dict)
+
+
+class AgentQueryRequest(BaseModel):
+    """User inquiry request to the AI regulatory investigation agent."""
+    query: str = Field(..., description="Natural language question regarding government scholarship policy")
+    scheme_name: Optional[str] = Field(None, description="Target scheme if known")
+    target_date: Optional[str] = Field(None, description="Target evaluation date (YYYY-MM-DD) if applicable")
+    beneficiary_group: Optional[str] = Field(None, description="Specific applicant demographic or economic cohort")
+    session_id: Optional[str] = Field(None, description="Optional conversational session identifier")
+
+
+class AgentQueryResponse(BaseModel):
+    """Structured response from the agentic regulatory investigation."""
+    session_id: str
+    query: str
+    scheme_name: Optional[str] = None
+    direct_answer: str = Field(..., description="Authoritative, evidence-backed answer")
+    reasoning_type: str = Field("FACTUAL_DETERMINISTIC", description="Reasoning distinction: RETRIEVED_FACT, DETERMINISTIC_CALCULATION, AI_INFERRED, or UNRESOLVED")
+    steps_taken: List[AgentInvestigationStep] = Field(default_factory=list)
+    detected_changes: List[ChangeRecord] = Field(default_factory=list)
+    impact_summary: Optional[str] = None
+    affected_groups: List[AffectedGroup] = Field(default_factory=list)
+    evidence_citations: List[EvidenceRecord] = Field(default_factory=list)
+    verification_confidence: float = Field(1.0, ge=0.0, le=1.0)
+    uncertainties: List[str] = Field(default_factory=list)
+    actionable_recommendations: List[str] = Field(default_factory=list)
+    source_documents: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class DocumentIngestRequest(BaseModel):
+    """Payload for submitting new official policy documents or raw text for extraction."""
+    raw_text: Optional[str] = Field(None, description="Raw text of the gazette / notification")
+    file_name: Optional[str] = Field(None, description="Original filename (e.g. pms_sc_2020.pdf)")
+    document_type: DocumentType = Field(default=DocumentType.NOTIFICATION)
+    scheme_name: str = Field(..., description="Target scheme name")
+    ministry: str = Field(..., description="Issuing Ministry")
+    order_number: Optional[str] = None
+    publication_date: Optional[str] = None
+    effective_date: Optional[str] = None
+    source_url: Optional[str] = None
+    version: Optional[str] = "1.0"
+    structured_document: Optional[Document] = Field(None, description="Pre-structured Document from Person 1 if already parsed")
+
+
+class CompareRequest(BaseModel):
+    """Request to compare two policy document versions."""
+    base_document_id: Optional[str] = Field(None, description="Baseline policy document ID")
+    target_document_id: str = Field(..., description="Target / amending document ID")
+    scheme_name: Optional[str] = None
+
+
+class ImpactRequest(BaseModel):
+    """Request to generate impact analysis for a scheme or revision."""
+    target_document_id: str = Field(..., description="Target policy document ID")
+    base_document_id: Optional[str] = Field(None, description="Baseline policy document ID")
+    scheme_name: Optional[str] = None

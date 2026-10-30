@@ -49,6 +49,12 @@ class TemporalResolver:
             # Start of Indian financial year is 1st April
             return date(start_year, 4, 1)
 
+        if re.match(r'^\d{4}-\d{2}-\d{2}$', clean):
+            try:
+                return date.fromisoformat(clean)
+            except ValueError:
+                pass
+
         try:
             dt = date_parser.parse(clean, dayfirst=True)
             return dt.date()
