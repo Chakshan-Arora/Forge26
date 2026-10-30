@@ -40,6 +40,7 @@ class DocumentModel(Base):
     source_url = Column(String(512), nullable=True)
     version = Column(String(32), default="1.0")
     status = Column(String(32), default="ACTIVE", index=True)
+    verification_status = Column(String(64), default="UNVERIFIED", index=True)
     references_json = Column(JSON, default=list)
     created_at = Column(DateTime, default=datetime.utcnow)
 

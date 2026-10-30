@@ -159,6 +159,7 @@ class Document(BaseModel):
     source_url: Optional[str] = Field(None, description="Official government portal URL")
     version: Optional[str] = Field("1.0", description="Policy version string")
     status: Optional[str] = Field("ACTIVE", description="Legal status: 'ACTIVE', 'AMENDED', 'SUPERSEDED', 'PROVISIONAL'")
+    verification_status: Optional[str] = Field("UNVERIFIED", description="Official source audit status: 'VERIFIED', 'PARTIALLY_VERIFIED', or 'UNVERIFIED'")
     clauses: List[Clause] = Field(default_factory=list, description="Extracted clauses")
     references: List[Dict[str, str]] = Field(
         default_factory=list,

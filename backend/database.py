@@ -7,7 +7,7 @@ local development and zero-dependency automated testing.
 
 import logging
 from typing import Generator
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text as sa_text
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 from backend.config import settings
 
@@ -45,6 +45,13 @@ def init_db(seed_corpus: bool = True) -> None:
     import backend.models  # Ensure models are registered with Base
     logger.info("Initializing database schema...")
     Base.metadata.create_all(bind=engine)
+    # Ensure verification_status column exists in SQLite if created earlier
+    with engine.connect() as conn:
+        try:
+            conn.execute(sa_text("ALTER TABLE documents ADD COLUMN verification_status VARCHAR(64) DEFAULT 'UNVERIFIED'"))
+            conn.commit()
+        except Exception:
+            pass
 
     if seed_corpus:
         from backend.services.persistence_service import seed_initial_corpus_if_empty

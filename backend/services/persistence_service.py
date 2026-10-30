@@ -63,6 +63,7 @@ def document_to_schema(model: DocumentModel) -> Document:
         source_url=model.source_url,
         version=model.version or "1.0",
         status=model.status or "ACTIVE",
+        verification_status=getattr(model, "verification_status", "UNVERIFIED") or "UNVERIFIED",
         clauses=clauses,
         references=model.references_json or [],
     )
