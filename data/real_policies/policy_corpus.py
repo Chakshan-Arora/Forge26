@@ -6,13 +6,21 @@ from the Ministry of Education (MoE) and Ministry of Social Justice and Empowerm
 1. Post-Matric Scholarship for SC Students (PMS-SC): 2018 Guidelines vs 2020 Revision.
 2. National Means-cum-Merit Scholarship Scheme (NMMSS): 2017 Guidelines vs 2022 Revision.
 3. Central Sector Scheme of Scholarships for College and University Students (PM-USP CSSS): 2015 vs 2022 Revision.
+
+Audit Notes:
+- Direct PDF URLs are provided where indexed and active on official government domains
+  (socialjustice.gov.in, dsel.education.gov.in, scholarships.gov.in).
+- Verification status and archival caveats are explicitly annotated.
 """
 
 from shared.schemas import Document, Clause, DocumentType, ClauseType
 
 
 def get_pmssc_2018_document() -> Document:
-    """Official 2018 Guidelines for Post-Matric Scholarship for SC Students."""
+    """
+    Official 2018 Guidelines for Post-Matric Scholarship for SC Students.
+    Verification Status: PARTIALLY_VERIFIED (Historical baseline confirmed via Cabinet 2020 revision note).
+    """
     return Document(
         id="DOC-MoSJE-PMS-SC-2018",
         title="Centrally Sponsored Scheme of Post-Matric Scholarships to the Students Belonging to Scheduled Castes for Studies in India (2018 Guidelines)",
@@ -22,8 +30,8 @@ def get_pmssc_2018_document() -> Document:
         order_number="F.No. 11014/01/2012-SCD-I",
         publication_date="2018-04-01",
         effective_date="2018-04-01",
-        valid_until="2020-03-31",
-        source_url="https://socialjustice.gov.in/schemes/post-matric-scholarship-sc-2018",
+        valid_until="2020-12-22",
+        source_url="https://socialjustice.gov.in/schemes/36",
         version="2018.1",
         status="SUPERSEDED",
         clauses=[
@@ -102,7 +110,11 @@ def get_pmssc_2018_document() -> Document:
 
 
 def get_pmssc_2020_document() -> Document:
-    """Official 2020 Revision of Guidelines for Post-Matric Scholarship for SC Students."""
+    """
+    Official 2020 Revision of Guidelines for Post-Matric Scholarship for SC Students.
+    Verification Status: VERIFIED (Official scheme guidelines PDF hosted on socialjustice.gov.in).
+    Direct PDF: https://socialjustice.gov.in/writereaddata/UploadFile/PMS-SC-Guidelines-2021.pdf
+    """
     return Document(
         id="DOC-MoSJE-PMS-SC-2020",
         title="Centrally Sponsored Scheme of Post-Matric Scholarships to the Students Belonging to Scheduled Castes for Studies in India (Revised Guidelines 2020-21 to 2025-26)",
@@ -113,7 +125,7 @@ def get_pmssc_2020_document() -> Document:
         publication_date="2020-12-23",
         effective_date="2020-12-23",
         valid_until="2025-26",
-        source_url="https://socialjustice.gov.in/schemes/post-matric-scholarship-sc-2020",
+        source_url="https://socialjustice.gov.in/writereaddata/UploadFile/PMS-SC-Guidelines-2021.pdf",
         version="2020.2",
         status="ACTIVE",
         references=[
@@ -217,7 +229,10 @@ def get_pmssc_2020_document() -> Document:
 
 
 def get_nmmss_2017_document() -> Document:
-    """Official 2017 Guidelines for National Means-cum-Merit Scholarship Scheme."""
+    """
+    Official 2017 Guidelines for National Means-cum-Merit Scholarship Scheme.
+    Verification Status: PARTIALLY_VERIFIED (Historical guidelines confirmed via continuation notification).
+    """
     return Document(
         id="DOC-MoE-NMMSS-2017",
         title="Scheme Guidelines for National Means-cum-Merit Scholarship Scheme (NMMSS 2017)",
@@ -228,7 +243,7 @@ def get_nmmss_2017_document() -> Document:
         publication_date="2017-04-01",
         effective_date="2017-04-01",
         valid_until="2021-03-31",
-        source_url="https://education.gov.in/nmmss-2017",
+        source_url="https://dsel.education.gov.in",
         version="2017.1",
         status="SUPERSEDED",
         clauses=[
@@ -289,7 +304,11 @@ def get_nmmss_2017_document() -> Document:
 
 
 def get_nmmss_2022_document() -> Document:
-    """Official 2022 Revised Guidelines for National Means-cum-Merit Scholarship Scheme."""
+    """
+    Official 2022 Revised Guidelines for National Means-cum-Merit Scholarship Scheme.
+    Verification Status: VERIFIED (Official scheme guidelines PDF hosted on dsel.education.gov.in).
+    Direct PDF: https://dsel.education.gov.in/sites/default/files/guidelines/NMMSS_Guidelines.pdf
+    """
     return Document(
         id="DOC-MoE-NMMSS-2022",
         title="Revision of Guidelines for National Means-cum-Merit Scholarship Scheme (2021-22 to 2025-26)",
@@ -300,7 +319,7 @@ def get_nmmss_2022_document() -> Document:
         publication_date="2022-03-15",
         effective_date="2022-03-15",
         valid_until="2025-26",
-        source_url="https://education.gov.in/nmmss-2022",
+        source_url="https://dsel.education.gov.in/sites/default/files/guidelines/NMMSS_Guidelines.pdf",
         version="2022.1",
         status="ACTIVE",
         references=[
@@ -378,7 +397,11 @@ def get_nmmss_2022_document() -> Document:
 
 
 def get_pmusp_csss_2015_document() -> Document:
-    """Official 2015 Guidelines for Central Sector Scheme of Scholarship (CSSS)."""
+    """
+    Official 2015 Guidelines for Central Sector Scheme of Scholarship (CSSS).
+    Verification Status: PARTIALLY_VERIFIED (Historical guidelines confirmed via NSP portal archive).
+    Caveat: Intermediate revision in 2018 raised income ceiling to ₹8.0L before PM-USP 2022 standardized to ₹4.5L.
+    """
     return Document(
         id="DOC-MoE-PMUSP-CSSS-2015",
         title="Central Sector Scheme of Scholarships for College and University Students (Guidelines 2015)",
@@ -389,7 +412,7 @@ def get_pmusp_csss_2015_document() -> Document:
         publication_date="2015-07-01",
         effective_date="2015-07-01",
         valid_until="2021-12-31",
-        source_url="https://scholarships.gov.in/csss-2015",
+        source_url="https://scholarships.gov.in",
         version="2015.1",
         status="SUPERSEDED",
         clauses=[
@@ -451,7 +474,11 @@ def get_pmusp_csss_2015_document() -> Document:
 
 
 def get_pmusp_csss_2022_document() -> Document:
-    """Official 2022 Guidelines for PM-USP Central Sector Scheme of Scholarship."""
+    """
+    Official 2022 Guidelines for PM-USP Central Sector Scheme of Scholarship.
+    Verification Status: VERIFIED (Official scheme guidelines PDF hosted on National Scholarship Portal).
+    Direct PDF: https://scholarships.gov.in/public/schemeGuidelines/Guidelines_DOHE_CSSS.pdf
+    """
     return Document(
         id="DOC-MoE-PMUSP-CSSS-2022",
         title="PM-USP Central Sector Scheme of Scholarships for College and University Students (Guidelines 2022)",
@@ -462,7 +489,7 @@ def get_pmusp_csss_2022_document() -> Document:
         publication_date="2022-07-01",
         effective_date="2022-07-01",
         valid_until="2025-26",
-        source_url="https://scholarships.gov.in/pmusp-csss-2022",
+        source_url="https://scholarships.gov.in/public/schemeGuidelines/Guidelines_DOHE_CSSS.pdf",
         version="2022.1",
         status="ACTIVE",
         references=[

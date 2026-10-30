@@ -1,0 +1,29 @@
+# Policy Intel - Production & Development Dependencies
+
+# Web & API Framework
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+
+# Data Validation & Serialization
+pydantic>=2.8.0
+
+# Database & ORM
+sqlalchemy>=2.0.30
+alembic>=1.13.0
+psycopg2-binary>=2.9.9
+
+# Agent Orchestration & State Machine
+langgraph>=0.2.0
+langchain-core>=0.3.0
+
+# Graph Analytics & Network Reasoning
+networkx>=3.2.0
+
+# Environment Configuration
+python-dotenv>=1.0.1
+
+# Testing & Client
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+httpx>=0.27.0
