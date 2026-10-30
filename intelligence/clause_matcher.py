@@ -2,14 +2,15 @@
 Clause Matcher Module.
 
 Aligns clauses across policy versions using structural comparison,
-renumbering detection, fuzzy similarity, and optimal bipartite pairing.
-Supports both globally optimal bipartite assignment (via Hungarian algorithm/scipy)
+renumbering detection, fuzzy similarity, and threshold-safe optimal bipartite pairing.
+Supports both globally optimal bipartite assignment (via maximum-weight matching)
 and greedy maximum-weight heuristic matching.
 """
 
 from __future__ import annotations
 import warnings
 from typing import Dict, List, Optional, Set, Tuple
+import networkx as nx
 import numpy as np
 from pydantic import BaseModel, Field
 
@@ -117,9 +118,9 @@ class ClauseMatcher:
         Args:
             prev_clauses: Clauses from baseline/earlier policy version.
             curr_clauses: Clauses from amending/later policy version.
-            method: 'optimal' (default) uses Kuhn-Munkres/Hungarian algorithm via scipy
-                    to maximize total bipartite similarity score globally;
-                    'greedy' uses sorted candidate selection.
+            method: 'optimal' (default) uses threshold-safe maximum weight bipartite matching
+                    maximizing total similarity without allowing sub-threshold pairs to block matches;
+                    'greedy' uses candidate-sorted selection.
         
         Returns:
             List of ClauseMatchResult items including matches, additions, and removals.
@@ -174,39 +175,54 @@ class ClauseMatcher:
         matched_prev_indices: Set[int] = set()
         matched_curr_indices: Set[int] = set()
 
-        if method == "optimal":
-            try:
-                from scipy.optimize import linear_sum_assignment
-                # linear_sum_assignment solves min-cost matching.
-                # Maximize score by minimizing (1.0 - score)
-                cost_matrix = 1.0 - score_matrix
-                row_ind, col_ind = linear_sum_assignment(cost_matrix)
-                
-                for i, j in zip(row_ind, col_ind):
-                    score = float(score_matrix[i, j])
-                    if score >= self.config.medium_similarity_threshold:
-                        matched_pairs.append((i, j))
-                        matched_prev_indices.add(i)
-                        matched_curr_indices.add(j)
-            except Exception as e:
-                warnings.warn(f"Optimal matching via scipy failed ({e}); falling back to greedy matching.")
-                method = "greedy"
+        threshold = self.config.medium_similarity_threshold
 
-        if method == "greedy":
+        if method == "optimal":
+            # Threshold-Safe Maximum Weight Bipartite Matching
+            # Edges with score < threshold are omitted entirely, ensuring sub-threshold
+            # pairs can never displace or block an above-threshold pairing.
+            B = nx.Graph()
+            for i in range(M):
+                for j in range(N):
+                    s = float(score_matrix[i, j])
+                    if s >= threshold:
+                        B.add_edge(f"p_{i}", f"c_{j}", weight=s)
+
+            raw_matching = nx.max_weight_matching(B, maxcardinality=False)
+            for u, v in raw_matching:
+                if u.startswith("p_"):
+                    i = int(u[2:])
+                    j = int(v[2:])
+                else:
+                    i = int(v[2:])
+                    j = int(u[2:])
+                matched_pairs.append((i, j))
+                matched_prev_indices.add(i)
+                matched_curr_indices.add(j)
+
+            # Sort deterministically
+            matched_pairs.sort(key=lambda x: (x[0], x[1]))
+
+        elif method == "greedy":
             candidates: List[Tuple[float, int, int]] = []
             for i in range(M):
                 for j in range(N):
                     score = float(score_matrix[i, j])
-                    if score >= self.config.medium_similarity_threshold:
+                    if score >= threshold:
                         candidates.append((score, i, j))
             
-            # Sort descending by score
-            candidates.sort(key=lambda x: x[0], reverse=True)
+            # Sort descending by score, breaking ties stably
+            candidates.sort(key=lambda x: (x[0], -x[1], -x[2]), reverse=True)
             for score, i, j in candidates:
                 if i not in matched_prev_indices and j not in matched_curr_indices:
                     matched_pairs.append((i, j))
                     matched_prev_indices.add(i)
                     matched_curr_indices.add(j)
+            
+            matched_pairs.sort(key=lambda x: (x[0], x[1]))
+
+        else:
+            raise ValueError(f"Unknown matching method '{method}'. Must be 'optimal' or 'greedy'.")
 
         # Build result objects for matched pairs
         for i, j in matched_pairs:
@@ -234,7 +250,7 @@ class ClauseMatcher:
                 )
             )
 
-        # Step 3: Unmatched current clauses are ADDED
+        # Unmatched current clauses are ADDED
         for j, c_curr in enumerate(curr_clauses):
             if j not in matched_curr_indices:
                 results.append(
@@ -248,7 +264,7 @@ class ClauseMatcher:
                     )
                 )
 
-        # Step 4: Unmatched previous clauses are REMOVED / SUPERSEDED
+        # Unmatched previous clauses are REMOVED / SUPERSEDED
         for i, c_prev in enumerate(prev_clauses):
             if i not in matched_prev_indices:
                 results.append(
